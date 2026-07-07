@@ -39,7 +39,9 @@
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#ifdef HAVE_SYS_STROPTS_H
 #include <sys/stropts.h>
+#endif
 #include <termios.h>
 #include <unistd.h>
 
@@ -91,7 +93,7 @@ pid_t my_forkpty( int* amaster, char* name, const struct termios* termp, const s
     return -1;
   }
 
-#ifndef _AIX
+#if defined( HAVE_SYS_STROPTS_H ) && !defined( _AIX )
   if ( ioctl( slave, I_PUSH, "ptem" ) < 0 || ioctl( slave, I_PUSH, "ldterm" ) < 0 ) {
     perror( "ioctl(I_PUSH)" );
     close( slave );

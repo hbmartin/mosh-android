@@ -68,6 +68,11 @@ const LocaleVar get_ctype( void )
 
 const char* locale_charset( void )
 {
+#ifdef __ANDROID__
+  /* Bionic's locale support is minimal (and nl_langinfo() is only
+     available on newer API levels); Android terminals are UTF-8. */
+  return "UTF-8";
+#else
   static const char ASCII_name[] = "US-ASCII";
 
   /* Produce more pleasant name of US-ASCII */
@@ -78,6 +83,7 @@ const char* locale_charset( void )
   }
 
   return ret;
+#endif
 }
 
 bool is_utf8_locale( void )

@@ -180,6 +180,18 @@ AC_ARG_ENABLE([server],
   [build_server="yes"])
 AM_CONDITIONAL([BUILD_SERVER], [test x"$build_server" != xno])
 
+AC_ARG_ENABLE([android-jni],
+  [AS_HELP_STRING([--enable-android-jni],
+    [Build libmosh-client.so, a JNI library exposing the mosh client to Android apps @<:@no@:>@])],
+  [build_android_jni="$enableval"],
+  [build_android_jni="no"])
+AS_IF([test x"$build_android_jni" != xno],
+  [AS_IF([test x"$build_client" = xno],
+     [AC_MSG_ERROR([--enable-android-jni requires --enable-client])])
+   AC_CHECK_HEADERS([jni.h], [],
+     [AC_MSG_ERROR([--enable-android-jni was given but jni.h was not found.])])])
+AM_CONDITIONAL([BUILD_ANDROID_JNI], [test x"$build_android_jni" != xno])
+
 AC_ARG_ENABLE([examples],
   [AS_HELP_STRING([--enable-examples], [Build the miscellaneous programs in src/examples @<:@no@:>@])],
   [build_examples="$enableval"],
@@ -287,6 +299,7 @@ AC_CHECK_HEADERS([pty.h util.h libutil.h paths.h])
 AC_CHECK_HEADERS([endian.h sys/endian.h])
 AC_CHECK_HEADERS([utmpx.h])
 AC_CHECK_HEADERS([termio.h])
+AC_CHECK_HEADERS([sys/stropts.h])
 AC_CHECK_HEADERS([sys/uio.h])
 AC_CHECK_HEADERS([memory tr1/memory])
 
