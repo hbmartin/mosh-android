@@ -157,9 +157,9 @@ extern "C" JNIEXPORT jint JNICALL Java_org_mosh_MoshClient_nativeMoshClientMain(
   return mosh_client_main( static_cast<int>( argv.size() ) - 1, argv.data() );
 }
 
-extern "C" JNIEXPORT void JNICALL Java_org_mosh_MoshClient_nativeNotifyWindowSizeChanged(
-  JNIEnv* env __attribute__( ( unused ) ),
-  jclass clazz __attribute__( ( unused ) ) )
+extern "C" JNIEXPORT void JNICALL
+Java_org_mosh_MoshClient_nativeNotifyWindowSizeChanged( JNIEnv* env __attribute__( ( unused ) ),
+                                                        jclass clazz __attribute__( ( unused ) ) )
 {
   raise( SIGWINCH );
 }
