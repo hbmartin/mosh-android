@@ -105,7 +105,13 @@ static void print_colorcount( void )
   printf( "%d\n", color_val );
 }
 
+#ifdef MOSH_ANDROID_JNI
+/* When built as an Android JNI library, the JNI wrapper in mosh_jni.cc
+   is the entry point and calls this renamed main(). */
+extern "C" int mosh_client_main( int argc, char* argv[] )
+#else
 int main( int argc, char* argv[] )
+#endif
 {
   unsigned int verbose = 0;
   /* For security, make sure we don't dump core */
