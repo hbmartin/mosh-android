@@ -3,6 +3,7 @@
 *.pb.cc
 *.pb.h
 *~
+/build/
 .deps
 Makefile
 Makefile.in
