@@ -440,7 +440,11 @@ TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$(host_tag)"
 NCPU="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
 SOURCES_DIR="$WORK_DIR/sources"
 mkdir -p "$SOURCES_DIR"
-rm -f "$WORK_DIR"/mosh-android-jni-*.zip
+# Only clear the zips being rebuilt; a partial-ABI run (ABIS=...) must
+# not delete the other ABIs' outputs.
+for abi in $ABIS; do
+  rm -f "$WORK_DIR/mosh-android-jni-$abi.zip"
+done
 
 PROTOC_DIR="$(download_protoc "$(protoc_platform)")"
 

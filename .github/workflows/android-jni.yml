@@ -2,12 +2,20 @@ name: Android JNI release assets
 
 on:
   workflow_dispatch:
+    inputs:
+      snapshot:
+        description: "Publish a -SNAPSHOT of the AAR to Maven Central"
+        type: boolean
+        default: false
   push:
     tags:
       - "android-jni-*"
 
 permissions:
   contents: write
+
+env:
+  NDK_VERSION: "28.2.13676358"
 
 jobs:
   android-jni-release-assets:
@@ -21,18 +29,86 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y autoconf automake cmake curl git libtool make ninja-build pkg-config rsync unzip zip
 
+      - name: Install pinned NDK
+        run: sdkmanager --install "ndk;$NDK_VERSION"
+
+      - name: Check release tag matches VERSION_NAME
+        if: startsWith(github.ref, 'refs/tags/android-jni-v')
+        run: |
+          tag_version="${GITHUB_REF_NAME#android-jni-v}"
+          gradle_version="$(sed -n 's/^VERSION_NAME=//p' android/gradle.properties)"
+          if [[ "$tag_version" != "$gradle_version" ]]; then
+            echo "tag version ($tag_version) != android/gradle.properties VERSION_NAME ($gradle_version)" >&2
+            exit 1
+          fi
+
       - name: Build Android JNI libraries
-        run: android/build-android-jni-assets.sh
+        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION" android/build-android-jni-assets.sh
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build AAR
+        run: ./gradlew :lib:assembleRelease :lib:lintRelease
+        working-directory: android
+
+      - name: Inspect AAR
+        run: |
+          aar=android/lib/build/outputs/aar/lib-release.aar
+          listing="$(unzip -l "$aar")"
+          for entry in \
+            jni/arm64-v8a/libmosh-client.so \
+            jni/armeabi-v7a/libmosh-client.so \
+            jni/x86/libmosh-client.so \
+            jni/x86_64/libmosh-client.so \
+            assets/terminfo.zip \
+            classes.jar
+          do
+            echo "$listing" | grep -qF " $entry" || { echo "missing $entry in AAR" >&2; exit 1; }
+          done
+          unzip -p "$aar" classes.jar | jar tv 2>/dev/null | grep -qF org/mosh/MoshClient.class \
+            || { echo "classes.jar lacks org/mosh/MoshClient.class" >&2; exit 1; }
+          echo "AAR contents OK"
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mosh-android-jni-release-assets
-          path: build/android-jni/mosh-android-jni-*.zip
+          path: |
+            build/android-jni/mosh-android-jni-*.zip
+            android/lib/build/outputs/aar/lib-release.aar
+
+      - name: Publish snapshot to Maven Central
+        if: github.event_name == 'workflow_dispatch' && inputs.snapshot
+        run: |
+          version="$(sed -n 's/^VERSION_NAME=//p' gradle.properties)"
+          ./gradlew :lib:publishToMavenCentral --no-configuration-cache "-PVERSION_NAME=${version}-SNAPSHOT"
+        working-directory: android
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+
+      - name: Publish to Maven Central
+        if: startsWith(github.ref, 'refs/tags/android-jni-v')
+        run: ./gradlew :lib:publishToMavenCentral --no-configuration-cache
+        working-directory: android
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
 
       - name: Upload GitHub release assets
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: build/android-jni/mosh-android-jni-*.zip
+          files: |
+            build/android-jni/mosh-android-jni-*.zip
+            android/lib/build/outputs/aar/lib-release.aar
